@@ -34,4 +34,4 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          platforms: linux/amd64   # arm64 needs docker/setup-qemu-action and a base image that has it: not verified yet
+          platforms: linux/amd64,linux/arm64   # the Dockerfile has no RUN step, so the arm64 image is built without emulation

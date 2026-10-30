@@ -65,7 +65,7 @@ go into the prompt (the 0.5B copied a temp path and a UUID into suggestions); th
 
 Adoption blockers first.
 
-1. **arm64 image** (Apple-silicon Macs are most of the zsh audience). Needs `docker/setup-qemu-action` or native arm runners, and a base image with an arm64 manifest (not checked).
+1. **arm64 image** (Apple-silicon Macs are most of the zsh audience). Published since the workflow lists `linux/arm64` (the base image has an arm64 manifest and the Dockerfile has no RUN step); **never run yet**: first real test is a Mac.
 2. **A no-container mode.** On macOS a container cannot use Metal and is slower than a native `llama-server`; offer `ZLG_BACKEND=native` that runs
    a local `llama-server` (brew) and the same `-hf` models, and a documented way to point at an existing Ollama / llama-server (Ollama's FIM API differs: `/api/generate` with `suffix`).
 3. **Auto-retry after the first start.** Today the first Ctrl+Space says "try again in a moment". Watch the container with `zle -F` and fill the suggestion in when it is ready, with a progress hint while the weights download (~2 GB).
