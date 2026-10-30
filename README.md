@@ -17,7 +17,8 @@ curl -fsSL https://raw.githubusercontent.com/feroult/zsh-localghost/main/install
 ```
 
 It clones the plugin into `~/.zsh/zsh-localghost` and adds one marked block at the end of your `~/.zshrc`
-(it has to come after zsh-autosuggestions). No sudo. Open a new terminal and press Ctrl+Space. To remove it all:
+(it has to come after zsh-autosuggestions). No sudo. Before it changes your `~/.zshrc` (installing or uninstalling) it saves a dated copy next to it,
+`~/.zshrc.zlg-bak-YYYYMMDD-HHMMSS`, and stops without touching the file if it cannot. Open a new terminal and press Ctrl+Space. To remove it all:
 `sh ~/.zsh/zsh-localghost/install.sh --uninstall`. To read the script before running it: open `install.sh` in this repo (about 70 lines).
 
 <details><summary>By hand, or with a plugin manager</summary>

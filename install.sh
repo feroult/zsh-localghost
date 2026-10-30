@@ -21,8 +21,16 @@ for a in "$@"; do case "$a" in --no-start) NOSTART=1;; --no-wait) NOWAIT=1;; --u
 say() { printf '%s\n' "$*"; }
 have() { command -v "$1" >/dev/null 2>&1; }
 
+backup_rc() {   # a dated copy next to the file, made right before this script changes it; aborts if it cannot be made
+  [ -s "$RC" ] || return 0
+  bak="$RC.zlg-bak-$(date +%Y%m%d-%H%M%S)"
+  cp "$RC" "$bak" || { say "could not write a backup of $RC, leaving it untouched"; exit 1; }
+  say "backup of your .zshrc: $bak"
+}
+
 remove_block() {
   [ -f "$RC" ] && grep -qF "$BEGIN" "$RC" || return 0
+  backup_rc
   tmp="$RC.zlg.$$"
   # drops the block and the blank line this installer put in front of it
   awk -v b="$BEGIN" -v e="$END" '{l[NR]=$0}
@@ -66,6 +74,7 @@ fi
 if [ -f "$RC" ] && grep -qF "$BEGIN" "$RC"; then
   say "$RC already has the block, left as is"
 else
+  backup_rc
   [ -f "$RC" ] && [ -s "$RC" ] && [ "$(tail -c1 "$RC" | wc -l)" -eq 0 ] && printf '\n' >> "$RC"
   { printf '\n%s\n' "$BEGIN"; printf 'source "%s/zsh-localghost.plugin.zsh"\n' "$DIR"; printf '%s\n' "$END"; } >> "$RC"
   say "added the block to the end of $RC"
