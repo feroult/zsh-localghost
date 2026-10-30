@@ -72,7 +72,7 @@ It goes only to the local container (published on 127.0.0.1 by default). Nothing
 
 ## Status: what is and is not verified
 
-Verified (2026-10-30, WSL2 + rootful podman, Debian/Ubuntu, zsh 5.9, latest zsh-autosuggestions), as a new user would install it:
+Verified (2026-10-30, including `curl ... | sh` straight from this repo, WSL2 + rootful podman, Debian/Ubuntu, zsh 5.9, latest zsh-autosuggestions), as a new user would install it:
 - the image published by the workflow pulls from ghcr.io; the first Ctrl+Space starts the container, downloads the weights into an
   empty volume and the next Ctrl+Space answers (~55 s in total on this machine); a stopped container is restarted the same way;
 - completing a command, writing a command from words (English and Portuguese), Ctrl+F / Enter, the second-Enter rule for
@@ -82,7 +82,7 @@ Verified (2026-10-30, WSL2 + rootful podman, Debian/Ubuntu, zsh 5.9, latest zsh-
 Tests you can run: `test/bench.py` (latency and sanity of completion and request mode against your servers),
 `zsh test/destructive_test.zsh test/destructive_cases.txt` (the destructive-command rules), `test/lab.sh` (a throwaway Ubuntu lab).
 
-Not verified: arm64, plugin managers (oh-my-zsh, zinit...), zsh older than 5.9, terminals other than the one used for testing,
+Not verified: running the arm64 image (it is published for linux/amd64 and linux/arm64, but only amd64 was ever run), plugin managers (oh-my-zsh, zinit...), zsh older than 5.9, terminals other than the one used for testing,
 GPU, macOS. Quality is that of a 1.5B model: good for common commands (`git`, `docker`, `tar`, `find`), unreliable for rarely used ones
 (`ssh`, `kubectl`). Read before pressing Enter.
 
