@@ -1,6 +1,6 @@
 #!/bin/sh
 # zlg: manage the zsh-localghost inference container (podman or docker).
-#   zlg start | wait [seconds] | stop | status | logs | pull
+#   zlg start | wait [seconds] | stop | status | logs | pull | diag
 ENGINE="${ZLG_ENGINE:-$(command -v podman || command -v docker)}"
 IMAGE="${ZLG_IMAGE:-ghcr.io/feroult/zsh-localghost:latest}"   # published by .github/workflows/publish.yml
 NAME="${ZLG_CONTAINER:-zsh-localghost}"
@@ -49,5 +49,33 @@ case "$1" in
   status) for p in "$PORT" "$PORT_FAST"; do printf 'port %s: ' "$p"; curl -sf -m 2 "http://$HOST:$p/health" || echo "down"; echo; done ;;
   logs)   "$ENGINE" logs -f "$NAME" ;;
   pull)   "$ENGINE" pull $PULL_ARGS "$IMAGE" ;;
-  *) echo "usage: zlg start|wait [seconds]|stop|status|logs|pull" >&2; exit 2 ;;
+  diag)   # what is needed to debug a slow or failing start; printed, and copied to the clipboard when a tool for it exists
+    out=$( {
+      echo "== $(uname -sm) $(sw_vers -productVersion 2>/dev/null)"
+      echo "== $("$ENGINE" --version 2>&1)"
+      if [ "$(basename "$ENGINE")" = podman ] && [ "$(uname -s)" = Darwin ]; then
+        echo "== podman machine (resources only):"
+        "$ENGINE" machine inspect 2>&1 | grep -iE '"(Name|CPUs|Memory|DiskSize|Rootful|UserModeNetworking)"'
+      fi
+      echo "== container:"
+      "$ENGINE" ps -a --filter "name=$NAME" --format '{{.Names}} | {{.Image}} | {{.Status}}' 2>&1
+      "$ENGINE" inspect "$NAME" --format 'restarts={{.RestartCount}} status={{.State.Status}} oomkilled={{.State.OOMKilled}} exit={{.State.ExitCode}} started={{.State.StartedAt}}' 2>&1
+      echo "== image platform:"
+      "$ENGINE" image inspect "$IMAGE" --format '{{.Architecture}}/{{.Os}} {{.Size}}' 2>&1
+      echo "== models downloaded so far:"
+      "$ENGINE" exec "$NAME" du -sh /models 2>&1
+      echo "== health:"
+      for p in "$PORT" "$PORT_FAST"; do printf 'port %s: ' "$p"; curl -s -m 3 "http://$HOST:$p/health" || printf 'no answer'; echo; done
+      echo "== network from inside the container (IPv4 vs IPv6 to Hugging Face):"
+      "$ENGINE" exec "$NAME" sh -c 'getent hosts huggingface.co | head -3; curl -4 -s -o /dev/null -m 10 -w "ipv4: http %{http_code} in %{time_total}s\n" https://huggingface.co; curl -6 -s -o /dev/null -m 10 -w "ipv6: http %{http_code} in %{time_total}s\n" https://huggingface.co || echo "ipv6: failed"' 2>&1
+      echo "== container log, first 40 lines:"
+      "$ENGINE" logs "$NAME" 2>&1 | head -40
+      echo "== container log, last 15 lines:"
+      "$ENGINE" logs "$NAME" 2>&1 | tail -15
+    } 2>&1 )
+    printf '%s\n' "$out"
+    for c in pbcopy wl-copy "xclip -selection clipboard"; do
+      if command -v "${c%% *}" >/dev/null 2>&1; then printf '%s\n' "$out" | $c && echo "(copied to the clipboard)" >&2; break; fi
+    done ;;
+  *) echo "usage: zlg start|wait [seconds]|stop|status|logs|pull|diag" >&2; exit 2 ;;
 esac
