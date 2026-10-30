@@ -6,7 +6,7 @@ ARGS=(--host 0.0.0.0 -ngl 0 -t "$T" -c 8192 --no-webui)
 P1=$!
 /app/llama-server -hf ggml-org/Qwen2.5-Coder-0.5B-Q8_0-GGUF --port 8081 "${ARGS[@]}" &
 P2=$!
-trap 'kill $P1 $P2 2>/dev/null' TERM INT
+trap 'kill $P1 $P2 2>/dev/null; exit 0' TERM INT   # a normal `stop` is not a failure
 wait -n $P1 $P2
 kill $P1 $P2 2>/dev/null
 exit 1

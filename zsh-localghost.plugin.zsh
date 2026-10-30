@@ -7,7 +7,9 @@
 #               (then it only goes into the buffer and a second Enter runs it). Without a suggestion Enter is untouched.
 #   Ctrl+X Ctrl+R  forces "request" mode when the guess was wrong
 # Settings (export before sourcing):
-#   ZLG_URL / ZLG_URL_FAST   main model (1.5B) / faster model (0.5B, used for line completion)
+#   ZLG_URL                  main model (1.5B): used for completing and for writing commands
+#   ZLG_URL_FAST             optional faster model (0.5B, http://localhost:8766/infill) for completion only; measured
+#                            ~2x faster but clearly less accurate, so it is off by default
 #   ZLG_AUTOSTART=0          do not start the container automatically (default: start it on the first request)
 #   ZLG_ENTER=0              do not touch Enter
 #   ZLG_KEY                  extra key sequence that triggers a suggestion, e.g. ZLG_KEY=$'\e[13;5u' (find yours: run `cat -v`, press the key)
@@ -16,7 +18,6 @@
 : ${ZLG_PORT:=8765}
 : ${ZLG_PORT_FAST:=8766}
 : ${ZLG_URL:=http://localhost:$ZLG_PORT/infill}
-: ${ZLG_URL_FAST:=http://localhost:$ZLG_PORT_FAST/infill}
 export ZLG_PORT ZLG_PORT_FAST
 : ${ZLG_N_PREDICT:=40}
 # Pastel defaults (256-colour palette numbers). For exact colours use e.g. fg=#9ad1d4 (needs a truecolor terminal,
@@ -54,6 +55,25 @@ _zlg_clear_ghost() {
   region_highlight=("${(@)region_highlight:#*memo=zsh-localghost}")
 }
 _zlg_hl() { region_highlight+=("$1 $2 $3,memo=zsh-localghost"); }   # start end style
+
+# Commands that lose data or are hard to undo: when a suggestion contains one, Enter only puts it in the buffer
+# (a second Enter runs it). Each pattern must start at a word boundary (start of line, or after space | ; & ( )
+# so that a word such as "terraform" does not match the pattern for rm.
+typeset -ga _ZLG_DESTRUCTIVE=(
+  'rm *' 'rmdir *' 'unlink *' 'shred *' 'truncate *' 'dd *' 'mkfs*' ':(){*' 'sudo *'
+  'chmod -R*' 'chown -R*' '* -delete*' '*> /dev/*' '*>/dev/*'
+  'git reset --hard*' 'git clean *' 'git checkout -- *' 'git checkout .*' 'git restore *' 'git stash drop*' 'git stash clear*'
+  'git branch -D*' 'git push *--force*' 'git push * -f*' 'git push -f*'
+  'docker rm*' 'docker rmi*' 'docker system prune*' 'docker volume rm*' 'docker volume prune*' 'docker container prune*' 'docker image prune*'
+  'kubectl delete*' 'terraform destroy*' '*DROP TABLE*' '*DROP DATABASE*' '*drop table*' '*drop database*'
+)
+_zlg_is_destructive() {
+  local s="$1" p
+  for p in "${_ZLG_DESTRUCTIVE[@]}"; do
+    [[ "$s" == ${~:-"(|*[ |;&(])"}${~p} ]] && return 0
+  done
+  return 1
+}
 
 # Is the buffer a request in words (1) or part of a command (0)?
 _zlg_looks_like_request() {
@@ -93,7 +113,7 @@ _zlg_run() {   # $1 = auto | request
   [[ -z "$out" ]] && { zle -R; return }
   local arrow="" warn=""
   (( request )) && arrow="$ZLG_ARROW"
-  [[ "$out" == *(rm\ -*r*|reset\ --hard|dd\ if=|mkfs|chmod\ -R\ 777|:\(\)\{)* ]] && { warn=" $ZLG_WARN_MARK"; _ZLG_WARN=1; }
+  _zlg_is_destructive "$out" && { warn=" $ZLG_WARN_MARK"; _ZLG_WARN=1; }
   POSTDISPLAY="${arrow}${out}${warn}"
   local b=$#BUFFER style="$ZLG_STYLE_COMPLETE"
   (( request )) && { _zlg_hl $b $(( b + $#arrow )) "$ZLG_STYLE_ARROW"; style="$ZLG_STYLE_COMMAND" }

@@ -1,0 +1,25 @@
+FLAG	git checkout -- .
+ok	git checkout main
+FLAG	git reset --hard HEAD
+ok	git reset --soft HEAD~1
+FLAG	rm -rf build
+FLAG	rm file.txt
+ok	terraform apply
+FLAG	terraform destroy
+ok	ls -la
+FLAG	find . -name x -delete
+FLAG	docker rm $(docker ps -aq)
+ok	docker ps -a
+FLAG	echo hi | xargs rm -f
+FLAG	git push --force origin main
+ok	git push origin main
+FLAG	sudo apt update
+FLAG	dd if=/dev/zero of=x
+ok	git log --oneline
+FLAG	cat a > /dev/sda
+ok	perform x
+ok	kubectl get pods
+FLAG	kubectl delete pod x
+ok	du -h --max-depth=1
+FLAG	docker system prune -af
+ok	echo "a form of art"

@@ -14,7 +14,6 @@ export LANG=C.UTF-8 TERM=xterm-256color
 source /root/.zsh-autosuggestions/zsh-autosuggestions.zsh
 export ZLG_AUTOSTART=0
 export ZLG_URL=${ZLG_URL:-http://host.containers.internal:8765/infill}
-export ZLG_URL_FAST=${ZLG_URL_FAST:-http://host.containers.internal:8766/infill}
 source /plugin/zsh-localghost.plugin.zsh
 PS1="%~ %# "
 cd ~

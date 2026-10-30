@@ -39,8 +39,10 @@ Build it with `podman build --format docker server/` (the HEALTHCHECK is dropped
 
 | Variable | Default | |
 |---|---|---|
-| `ZLG_URL` / `ZLG_URL_FAST` | `localhost:8765` / `:8766` (`/infill`) | main (1.5B) and fast (0.5B, line completion) servers |
+| `ZLG_URL` | `http://localhost:8765/infill` | main server (1.5B): completing and writing commands |
+| `ZLG_URL_FAST` | unset | optional 0.5B server (`http://localhost:8766/infill`) for completion only: ~2x faster, clearly less accurate |
 | `ZLG_AUTOSTART` | `1` | `0` = never start the container for you |
+| `ZLG_PULL_ARGS` | | extra flags for `pull` and `run` (e.g. `--tls-verify=false` for a plain-HTTP registry), read by `bin/zlg` |
 | `ZLG_ENTER` | `1` | `0` = leave Enter alone |
 | `ZLG_ARROW`, `ZLG_WARN_MARK` | ` → `, `⚠ destructive?` | glyphs (ASCII fallback when the locale is not UTF-8) |
 | `ZLG_STYLE_COMPLETE/COMMAND/ARROW/WARN` | greys, lavender, coral | `region_highlight` styles (256-colour numbers; basic colours if the terminal has fewer) |
@@ -56,12 +58,19 @@ It goes only to the local container (published on 127.0.0.1 by default). Nothing
 
 ## Status: what is and is not verified
 
-Verified on one machine (WSL2 + rootful podman, Ubuntu 24.04 lab container, latest zsh-autosuggestions):
-completion, command generation, Enter/Ctrl+F handling, colours and glyphs, the image building and serving both models from a populated volume.
+Verified (2026-10-30, WSL2 + rootful podman, Debian/Ubuntu, zsh 5.9, latest zsh-autosuggestions), as a new user would install it:
+- the image published by the workflow pulls from ghcr.io; the first Ctrl+Space starts the container, downloads the weights into an
+  empty volume and the next Ctrl+Space answers (~55 s in total on this machine); a stopped container is restarted the same way;
+- completing a command, writing a command from words (English and Portuguese), Ctrl+F / Enter, the second-Enter rule for
+  destructive suggestions, coexistence with zsh-autosuggestions, `ZLG_ENTER=0`, quotes and special characters in the buffer;
+- idle cost of the container: ~3-4 % of a CPU and ~450 MB of RAM.
 
-Not verified: the GitHub workflow (amd64 image only), arm64, pulling the image from ghcr.io (the package must be made public first), plugin managers (oh-my-zsh, zinit...),
-the auto-start path from inside a real zsh session, zsh older than 5.9, terminals other than the one used for testing.
-Suggestion quality is that of a 0.5B/1.5B model: it often copies your history and can be wrong. Read before pressing Enter.
+Tests you can run: `test/bench.py` (latency and sanity of completion and request mode against your servers),
+`zsh test/destructive_test.zsh test/destructive_cases.txt` (the destructive-command rules), `test/lab.sh` (a throwaway Ubuntu lab).
+
+Not verified: arm64, plugin managers (oh-my-zsh, zinit...), zsh older than 5.9, terminals other than the one used for testing,
+GPU, macOS. Quality is that of a 1.5B model: good for common commands (`git`, `docker`, `tar`, `find`), unreliable for rarely used ones
+(`ssh`, `kubectl`). Read before pressing Enter.
 
 ## Licenses
 

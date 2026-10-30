@@ -44,3 +44,47 @@ What none of the verified ones offer: a ready-made local inference container tha
   (Read `src/ghst/llm.py` and `config/default.toml` in its repo.)
 - Quality: the 1.5B copies the history for vague requests (`mostre os arquivos desta pasta` gave `du -h ...`). Needs a small evaluation set before claiming anything.
 - Name: settled on `zsh-localghost` (localhost + ghost text). The first working name was nearly identical to an existing project (zsh-llm-suggestions).
+
+## Findings from the end-to-end test (2026-10-30) and what they change
+
+Measured on an idle machine, 14 completion buffers and 10 requests (`test/bench.py`):
+
+| | median | worst | notes |
+|---|---|---|---|
+| completion, 0.5B | 67-78 ms | ~500 ms | wrong or invented on ~half of the buffers (`git log --` gave `start`; `ssh -` invented an IP) |
+| completion, 1.5B | 156-224 ms | 1.3 s | sensible on common tools; `ssh`, `kubectl` unreliable |
+| request -> command, 1.5B | 318-441 ms | ~600 ms | after the changes below: 10/10 plausible (was 8/10) |
+
+Changes made because of it: the 1.5B now handles completion (the 0.5B is opt-in via `ZLG_URL_FAST`); three fixed request->command
+examples before the request (stopped it copying the history: "qual processo esta usando a porta 3000" had given `docker ps -a`);
+repeat penalty only for requests (it made completion worse); repeated options are trimmed; only the last two components of the cwd
+go into the prompt (the 0.5B copied a temp path and a UUID into suggestions); the destructive-command list went from 5 patterns to
+~45 with word boundaries (`git checkout -- .` used to run on the first Enter); the container exits 0 on `stop`.
+
+## Possible evolutions (not started)
+
+Adoption blockers first.
+
+1. **arm64 image** (Apple-silicon Macs are most of the zsh audience). Needs `docker/setup-qemu-action` or native arm runners, and a base image with an arm64 manifest (not checked).
+2. **A no-container mode.** On macOS a container cannot use Metal and is slower than a native `llama-server`; offer `ZLG_BACKEND=native` that runs
+   a local `llama-server` (brew) and the same `-hf` models, and a documented way to point at an existing Ollama / llama-server (Ollama's FIM API differs: `/api/generate` with `suffix`).
+3. **Auto-retry after the first start.** Today the first Ctrl+Space says "try again in a moment". Watch the container with `zle -F` and fill the suggestion in when it is ready, with a progress hint while the weights download (~2 GB).
+4. **`zlg doctor`.** Checks the engine, port conflicts, `python3`/`curl`, zsh >= 5.9, UTF-8 locale and colours, and fixes `zlg status` (it queries `localhost`, which is wrong when the engine is remote, as in this sandbox: add `ZLG_HOST`).
+5. **Packaging and docs:** plugin-manager instructions tested (oh-my-zsh, zinit, antidote, sheldon), a Homebrew formula, a short demo GIF, a Windows/WSL note.
+
+Quality and experience.
+
+6. **Suggest while typing** (idea 1 above). The 1.5B median of ~160 ms is enough for a 200 ms debounce; the 0.5B is not accurate enough. Needs the async query with cancellation.
+7. **Project-aware context:** `package.json` scripts, `Makefile` targets, `docker-compose` services, git branch names, last exit code. `npm run ` and `make ` should complete with names that exist.
+8. **Retrieve from the whole history** instead of the last 8 lines (prefix match first, semantic later); strip secrets before building the prompt.
+9. **A scored evaluation set** (does the command run, does it match) so model, quantisation and prompt changes can be compared; try Q4 for speed, other small FIM models, and a larger model on request only.
+10. **Explain key** (what does this command do) and **fix-after-failure** suggestions using the error output.
+11. **Accept by word** (Shift+Right), **Esc** to dismiss, **undo** after accepting, a **cheat sheet** key.
+
+Operations and safety.
+
+12. **Idle shutdown:** stop the container after N idle minutes and let the transparent start bring it back (~2 s with warm volume), to give the ~450 MB back.
+13. **Pin the model revisions** (the `-hf` pull takes the latest of each repo) and offer a `:full` image with the weights baked in for offline machines.
+14. **CI tests:** run `test/destructive_test.zsh` and shellcheck before building the image; check the published image really carries the HEALTHCHECK (OCI output may drop it).
+15. **Access control:** llama-server has no auth; bound to 127.0.0.1 by default, but other local users can query it. An API key or a unix socket would close that.
+16. **Key bindings:** Ctrl+Space is not delivered by every terminal; Ctrl+Enter is indistinguishable from Enter in many; document a tested fallback.
