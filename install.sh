@@ -19,7 +19,12 @@ have() { command -v "$1" >/dev/null 2>&1; }
 remove_block() {
   [ -f "$RC" ] && grep -qF "$BEGIN" "$RC" || return 0
   tmp="$RC.zlg.$$"
-  awk -v b="$BEGIN" -v e="$END" '$0==b{skip=1} !skip{print} $0==e{skip=0}' "$RC" > "$tmp" && cat "$tmp" > "$RC" && rm -f "$tmp"
+  # drops the block and the blank line this installer put in front of it
+  awk -v b="$BEGIN" -v e="$END" '{l[NR]=$0}
+    END{for(i=1;i<=NR;i++) if(l[i]==b){s=i;break}
+        for(i=s;i<=NR;i++) if(l[i]==e){t=i;break}
+        if(s>1 && l[s-1]=="") s--
+        for(i=1;i<=NR;i++) if(i<s||i>t) print l[i]}' "$RC" > "$tmp" && cat "$tmp" > "$RC" && rm -f "$tmp"
   say "removed the zsh-localghost block from $RC"
 }
 
