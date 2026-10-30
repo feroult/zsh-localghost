@@ -12,11 +12,25 @@ Press **Ctrl+Space**:
 
 ## Install
 
+```sh
+curl -fsSL https://raw.githubusercontent.com/feroult/zsh-localghost/main/install.sh | sh
+```
+
+It clones the plugin into `~/.zsh/zsh-localghost` and adds one marked block at the end of your `~/.zshrc`
+(it has to come after zsh-autosuggestions). No sudo. Open a new terminal and press Ctrl+Space. To remove it all:
+`sh ~/.zsh/zsh-localghost/install.sh --uninstall`. To read the script before running it: open `install.sh` in this repo (about 70 lines).
+
+<details><summary>By hand, or with a plugin manager</summary>
+
 ```zsh
 git clone https://github.com/feroult/zsh-localghost ~/.zsh/zsh-localghost
 # in ~/.zshrc, AFTER zsh-autosuggestions if you use it:
 source ~/.zsh/zsh-localghost/zsh-localghost.plugin.zsh
 ```
+
+Plugin managers (not tested): `zinit light feroult/zsh-localghost`, `antidote` / `sheldon` with `feroult/zsh-localghost`;
+load it after zsh-autosuggestions.
+</details>
 
 Needs `zsh` >= 5.9, `curl`, `python3`, and `podman` or `docker`. The first suggestion starts the inference container
 (`bin/zlg start`: pulls the image, then downloads ~2 GB of weights from Hugging Face into a volume) and tells you to retry in a moment.
