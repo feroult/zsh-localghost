@@ -2,7 +2,9 @@
 # zsh-localghost installer.  Usage:
 #   curl -fsSL https://raw.githubusercontent.com/feroult/zsh-localghost/main/install.sh | sh
 #   sh install.sh --uninstall        remove the block from your .zshrc and the install directory
+#   sh install.sh --no-wait          start the model server but do not wait for the models to finish downloading
 #   sh install.sh --no-start         do not start the model server now (it then starts on the first Ctrl+Space, and that first press only starts it)
+#   (through a pipe: curl ... | sh -s -- --no-wait)
 # Environment: ZLG_HOME (install dir, default ~/.zsh/zsh-localghost), ZLG_REPO (git url to clone), ZDOTDIR (where .zshrc lives).
 # It only touches ZLG_HOME and one marked block at the end of your .zshrc. No sudo, no system changes.
 set -e
@@ -12,6 +14,9 @@ DIR="${ZLG_HOME:-$HOME/.zsh/zsh-localghost}"
 RC="${ZDOTDIR:-$HOME}/.zshrc"
 BEGIN="# >>> zsh-localghost >>>"
 END="# <<< zsh-localghost <<<"
+
+NOSTART=0; NOWAIT=0; UNINSTALL=0
+for a in "$@"; do case "$a" in --no-start) NOSTART=1;; --no-wait) NOWAIT=1;; --uninstall) UNINSTALL=1;; esac; done
 
 say() { printf '%s\n' "$*"; }
 have() { command -v "$1" >/dev/null 2>&1; }
@@ -28,15 +33,16 @@ remove_block() {
   say "removed the zsh-localghost block from $RC"
 }
 
-if [ "$1" = "--uninstall" ]; then
+if [ "$UNINSTALL" = 1 ]; then
   remove_block
   # only delete a directory that really is an install of this project
   if [ -f "$DIR/lib/query.py" ] && [ -f "$DIR/zsh-localghost.plugin.zsh" ]; then
     rm -rf -- "$DIR" && say "removed $DIR"
   fi
-  have podman && podman rm -f zsh-localghost >/dev/null 2>&1 || true
-  have docker && docker rm -f zsh-localghost >/dev/null 2>&1 || true
-  say "done. The downloaded models stay in the 'zsh-localghost-models' volume (podman/docker volume rm zsh-localghost-models to delete them)."
+  C="${ZLG_CONTAINER:-zsh-localghost}"; V="${ZLG_VOLUME:-zsh-localghost-models}"
+  have podman && podman rm -f "$C" >/dev/null 2>&1 || true
+  have docker && docker rm -f "$C" >/dev/null 2>&1 || true
+  say "done. The downloaded models stay in the '$V' volume (podman/docker volume rm $V to delete them)."
   exit 0
 fi
 
@@ -68,19 +74,25 @@ if [ -f "$RC" ] && grep -q "autosuggestions" "$RC" && ! awk -v b="$BEGIN" '/auto
   say "note: zsh-autosuggestions is loaded after this block in $RC. Move the zsh-localghost block below it."
 fi
 
-# 4. start the model server now, so that the first Ctrl+Space already has something to talk to.
-#    `zlg start` pulls the image (~860 MB) and returns; the container then downloads ~2 GB of models in the background.
-STARTED=0
-if [ "$1" != "--no-start" ] && [ -n "${ENGINE:-}" ]; then
-  say "starting the model server (pulls the ~860 MB image; the models, ~2 GB, then download in the background)..."
-  if "$DIR/bin/zlg" start; then STARTED=1; else say "could not start it now; it will be started on your first Ctrl+Space"; fi
+# 4. start the model server now and wait for it (progress bar), so that the first Ctrl+Space already answers.
+#    `zlg start` pulls the image (~860 MB, the engine shows its own progress); the container then downloads ~2 GB of models.
+STARTED=0; READY=0
+if [ "$NOSTART" = 0 ] && [ -n "${ENGINE:-}" ]; then
+  say "starting the model server (pulls the ~860 MB image, then the models, ~2 GB, download inside the container)..."
+  if "$DIR/bin/zlg" start; then
+    STARTED=1
+    if [ "$NOWAIT" = 0 ]; then "$DIR/bin/zlg" wait 900 && READY=1 || say "it is taking longer than expected; it keeps going in the background (zlg logs)"; fi
+  else
+    say "could not start it now; it will be started on your first Ctrl+Space"
+  fi
 fi
 
 say ""
 say "installed. Open a new terminal (or run: exec zsh), type something like  git log --  and press Ctrl+Space."
-if [ "$STARTED" = 1 ]; then
-  say "The model server is warming up: if you press Ctrl+Space in the next minute and get no suggestion, wait a little and press it again."
-  say "Check with:  $DIR/bin/zlg logs"
+if [ "$READY" = 1 ]; then
+  say "The model server is ready."
+elif [ "$STARTED" = 1 ]; then
+  say "The model server is still warming up: if you get no suggestion yet, wait a little and press Ctrl+Space again (progress: $DIR/bin/zlg wait)."
 else
   say "The first Ctrl+Space starts the model server (downloads ~860 MB image + ~2 GB models); try again after a minute."
 fi

@@ -1,14 +1,24 @@
 #!/bin/sh
 # zlg: manage the zsh-localghost inference container (podman or docker).
-#   zlg start | stop | status | logs | pull
+#   zlg start | wait [seconds] | stop | status | logs | pull
 ENGINE="${ZLG_ENGINE:-$(command -v podman || command -v docker)}"
 IMAGE="${ZLG_IMAGE:-ghcr.io/feroult/zsh-localghost:latest}"   # published by .github/workflows/publish.yml
 NAME="${ZLG_CONTAINER:-zsh-localghost}"
+HOST="${ZLG_HOST:-localhost}"   # where the published ports are reachable from (differs when the engine is remote)
 PORT="${ZLG_PORT:-8765}"; PORT_FAST="${ZLG_PORT_FAST:-8766}"
 BIND="${ZLG_BIND:-127.0.0.1}"
 VOLUME="${ZLG_VOLUME:-zsh-localghost-models}"
 PULL_ARGS="${ZLG_PULL_ARGS:-}"   # e.g. --tls-verify=false for a plain-HTTP registry (testing)
+EXPECTED="${ZLG_EXPECTED_BYTES:-2300000000}"   # about what the two models weigh; only used to draw the progress bar
 [ -n "$ENGINE" ] || { echo "zlg: neither podman nor docker found" >&2; exit 1; }
+
+healthy() { curl -sf -m 2 "http://$HOST:$1/health" >/dev/null 2>&1; }
+
+bar() {   # bar PERCENT  ->  [######----------------------]  27%
+  f=$(( $1 * 30 / 100 )); a=""; b=""; i=0
+  while [ "$i" -lt 30 ]; do if [ "$i" -lt "$f" ]; then a="${a}#"; else b="${b}-"; fi; i=$((i + 1)); done
+  printf '[%s%s] %3d%%' "$a" "$b" "$1"
+}
 
 case "$1" in
   start)
@@ -19,9 +29,25 @@ case "$1" in
         -p "$BIND:$PORT:8080" -p "$BIND:$PORT_FAST:8081" \
         -v "$VOLUME:/models" -e ZLG_THREADS="${ZLG_THREADS:-4}" $PULL_ARGS "$IMAGE" >/dev/null && echo "zlg: started $NAME from $IMAGE"
     fi ;;
+  wait)   # progress bar until both model servers answer (the models download inside the container on the first start)
+    limit="${2:-900}"; t=0; shown=-1; tty=0; [ -t 1 ] && tty=1
+    while :; do
+      if healthy "$PORT" && healthy "$PORT_FAST"; then
+        [ "$tty" = 1 ] && { printf '\r'; bar 100; printf '  ready                              \n'; } || echo "zlg: ready"
+        exit 0
+      fi
+      [ "$("$ENGINE" inspect -f '{{.State.Running}}' "$NAME" 2>/dev/null)" = true ] || { [ "$tty" = 1 ] && echo; echo "zlg: container $NAME is not running (see: zlg logs)" >&2; exit 1; }
+      bytes=$("$ENGINE" exec "$NAME" du -sb /models 2>/dev/null | awk '{print $1}'); bytes="${bytes:-0}"
+      pct=$(( bytes * 100 / EXPECTED )); [ "$pct" -gt 99 ] && pct=99
+      what="downloading models: $(( bytes / 1000000 )) / $(( EXPECTED / 1000000 )) MB"; [ "$pct" -ge 97 ] && what="loading models"
+      if [ "$tty" = 1 ]; then printf '\r'; bar "$pct"; printf '  %s   ' "$what"
+      elif [ $(( t % 10 )) -eq 0 ] && [ "$pct" != "$shown" ]; then bar "$pct"; printf '  %s\n' "$what"; shown="$pct"; fi
+      [ "$t" -ge "$limit" ] && { [ "$tty" = 1 ] && echo; echo "zlg: still not ready after ${limit}s (see: zlg logs)" >&2; exit 1; }
+      sleep 2; t=$(( t + 2 ))
+    done ;;
   stop)   "$ENGINE" rm -f "$NAME" >/dev/null && echo "zlg: removed $NAME (models stay in volume $VOLUME)" ;;
-  status) for p in "$PORT" "$PORT_FAST"; do printf 'port %s: ' "$p"; curl -sf -m 2 "http://localhost:$p/health" || echo "down"; echo; done ;;
+  status) for p in "$PORT" "$PORT_FAST"; do printf 'port %s: ' "$p"; curl -sf -m 2 "http://$HOST:$p/health" || echo "down"; echo; done ;;
   logs)   "$ENGINE" logs -f "$NAME" ;;
   pull)   "$ENGINE" pull $PULL_ARGS "$IMAGE" ;;
-  *) echo "usage: zlg start|stop|status|logs|pull" >&2; exit 2 ;;
+  *) echo "usage: zlg start|wait [seconds]|stop|status|logs|pull" >&2; exit 2 ;;
 esac
