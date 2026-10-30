@@ -32,8 +32,13 @@ Plugin managers (not tested): `zinit light feroult/zsh-localghost`, `antidote` /
 load it after zsh-autosuggestions.
 </details>
 
-Needs `zsh` >= 5.9, `curl`, `python3`, and `podman` or `docker`. The first suggestion starts the inference container
-(`bin/zlg start`: pulls the image, then downloads ~2 GB of weights from Hugging Face into a volume) and tells you to retry in a moment.
+Needs `zsh` >= 5.9, `curl`, `python3`, and `podman` or `docker`.
+
+**The installer starts the model server for you** (`bin/zlg start`): it pulls the ~860 MB image and returns, and the container then
+downloads ~2 GB of weights from Hugging Face into a volume in the background (about a minute on a fast line). The container is created
+with `--restart unless-stopped`, so your engine brings it back after a restart; the weights stay in the `zsh-localghost-models` volume.
+If you press Ctrl+Space before it has finished, you get no suggestion yet: wait a little and press it again.
+`install.sh --no-start` skips this; the first Ctrl+Space then starts the server instead (and that first press only starts it).
 
 ## How it is put together
 

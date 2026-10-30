@@ -2,7 +2,7 @@
 # zsh-localghost installer.  Usage:
 #   curl -fsSL https://raw.githubusercontent.com/feroult/zsh-localghost/main/install.sh | sh
 #   sh install.sh --uninstall        remove the block from your .zshrc and the install directory
-#   sh install.sh --pull             also pre-download the model server image (~860 MB) instead of waiting for the first use
+#   sh install.sh --no-start         do not start the model server now (it then starts on the first Ctrl+Space, and that first press only starts it)
 # Environment: ZLG_HOME (install dir, default ~/.zsh/zsh-localghost), ZLG_REPO (git url to clone), ZDOTDIR (where .zshrc lives).
 # It only touches ZLG_HOME and one marked block at the end of your .zshrc. No sudo, no system changes.
 set -e
@@ -68,8 +68,19 @@ if [ -f "$RC" ] && grep -q "autosuggestions" "$RC" && ! awk -v b="$BEGIN" '/auto
   say "note: zsh-autosuggestions is loaded after this block in $RC. Move the zsh-localghost block below it."
 fi
 
-[ "$1" = "--pull" ] && [ -n "${ENGINE:-}" ] && { say "pulling the model server image..."; "$DIR/bin/zlg" pull; }
+# 4. start the model server now, so that the first Ctrl+Space already has something to talk to.
+#    `zlg start` pulls the image (~860 MB) and returns; the container then downloads ~2 GB of models in the background.
+STARTED=0
+if [ "$1" != "--no-start" ] && [ -n "${ENGINE:-}" ]; then
+  say "starting the model server (pulls the ~860 MB image; the models, ~2 GB, then download in the background)..."
+  if "$DIR/bin/zlg" start; then STARTED=1; else say "could not start it now; it will be started on your first Ctrl+Space"; fi
+fi
 
 say ""
 say "installed. Open a new terminal (or run: exec zsh), type something like  git log --  and press Ctrl+Space."
-say "The first time it starts the local model server by itself (downloads ~860 MB image + ~2 GB models); try again after a minute."
+if [ "$STARTED" = 1 ]; then
+  say "The model server is warming up: if you press Ctrl+Space in the next minute and get no suggestion, wait a little and press it again."
+  say "Check with:  $DIR/bin/zlg logs"
+else
+  say "The first Ctrl+Space starts the model server (downloads ~860 MB image + ~2 GB models); try again after a minute."
+fi
