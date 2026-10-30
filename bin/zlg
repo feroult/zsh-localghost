@@ -5,7 +5,7 @@ ENGINE="${ZLG_ENGINE:-$(command -v podman || command -v docker)}"
 IMAGE="${ZLG_IMAGE:-ghcr.io/feroult/zsh-localghost:latest}"   # published by .github/workflows/publish.yml
 NAME="${ZLG_CONTAINER:-zsh-localghost}"
 HOST="${ZLG_HOST:-localhost}"   # where the published ports are reachable from (differs when the engine is remote)
-PORT="${ZLG_PORT:-8765}"; PORT_FAST="${ZLG_PORT_FAST:-8766}"
+PORT="${ZLG_PORT:-31865}"; PORT_FAST="${ZLG_PORT_FAST:-31866}"   # below the OS ephemeral ranges, away from the usual dev ports
 BIND="${ZLG_BIND:-127.0.0.1}"
 VOLUME="${ZLG_VOLUME:-zsh-localghost-models}"
 PULL_ARGS="${ZLG_PULL_ARGS:-}"   # e.g. --tls-verify=false for a plain-HTTP registry (testing)
@@ -22,10 +22,19 @@ bar() {   # bar PERCENT  ->  [######----------------------]  27%
 
 case "$1" in
   start)
-    if "$ENGINE" container exists "$NAME" 2>/dev/null || "$ENGINE" inspect "$NAME" >/dev/null 2>&1; then
+    want="$BIND:$PORT:$PORT_FAST"; exists=0
+    if "$ENGINE" container exists "$NAME" 2>/dev/null || "$ENGINE" inspect "$NAME" >/dev/null 2>&1; then exists=1; fi
+    if [ "$exists" = 1 ]; then   # a container made for other ports (or by an older version, which had no label) is recreated
+      have=$("$ENGINE" inspect "$NAME" --format '{{index .Config.Labels "zlg.ports"}}' 2>/dev/null)
+      if [ "$have" != "$want" ]; then
+        echo "zlg: $NAME was created for other ports (${have:-unknown}); recreating it for $want (the models stay in volume $VOLUME)"
+        "$ENGINE" rm -f "$NAME" >/dev/null; exists=0
+      fi
+    fi
+    if [ "$exists" = 1 ]; then
       "$ENGINE" start "$NAME" >/dev/null && echo "zlg: started existing container $NAME"
     else
-      "$ENGINE" run -d --name "$NAME" --restart unless-stopped \
+      "$ENGINE" run -d --name "$NAME" --restart unless-stopped --label "zlg.ports=$want" \
         -p "$BIND:$PORT:8080" -p "$BIND:$PORT_FAST:8081" \
         -v "$VOLUME:/models" -e ZLG_THREADS="${ZLG_THREADS:-4}" $PULL_ARGS "$IMAGE" >/dev/null && echo "zlg: started $NAME from $IMAGE"
     fi ;;

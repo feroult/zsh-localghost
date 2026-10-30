@@ -58,8 +58,8 @@ Build it with `podman build --format docker server/` (the HEALTHCHECK is dropped
 
 | Variable | Default | |
 |---|---|---|
-| `ZLG_URL` | `http://localhost:8765/infill` | main server (1.5B): completing and writing commands |
-| `ZLG_URL_FAST` | unset | optional 0.5B server (`http://localhost:8766/infill`) for completion only: ~2x faster, clearly less accurate |
+| `ZLG_URL` | `http://localhost:31865/infill` | main server (1.5B): completing and writing commands |
+| `ZLG_URL_FAST` | unset | optional 0.5B server (`http://localhost:31866/infill`) for completion only: ~2x faster, clearly less accurate |
 | `ZLG_AUTOSTART` | `1` | `0` = never start the container for you |
 | `ZLG_PULL_ARGS` | | extra flags for `pull` and `run` (e.g. `--tls-verify=false` for a plain-HTTP registry), read by `bin/zlg` |
 | `ZLG_ENTER` | `1` | `0` = leave Enter alone |

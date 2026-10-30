@@ -7,8 +7,8 @@ Flags a suggestion as REPEAT when a 3-word window appears twice, and LONG when i
 import os, subprocess, sys, time, statistics
 HERE = os.path.dirname(os.path.abspath(__file__))
 QUERY = os.path.join(HERE, "..", "lib", "query.py")
-MAIN = sys.argv[1] if len(sys.argv) > 1 else "http://localhost:8765/infill"
-FAST = sys.argv[2] if len(sys.argv) > 2 else "http://localhost:8766/infill"
+MAIN = sys.argv[1] if len(sys.argv) > 1 else "http://localhost:31865/infill"
+FAST = sys.argv[2] if len(sys.argv) > 2 else "http://localhost:31866/infill"
 HIST = "git status\ngo test ./...\nls src\ndocker ps\ncd docs\n"
 COMPLETE = ["git ", "git log --", "git commit -m ", "docker run -", "docker compose u", "ls -", "cd ", "tar -x",
             "find . -name '*.go' -", "grep -r", "kubectl get po", "npm run ", "ssh -", "curl -s localhost:8080/"]

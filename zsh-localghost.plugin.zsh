@@ -8,15 +8,15 @@
 #   Ctrl+X Ctrl+R  forces "request" mode when the guess was wrong
 # Settings (export before sourcing):
 #   ZLG_URL                  main model (1.5B): used for completing and for writing commands
-#   ZLG_URL_FAST             optional faster model (0.5B, http://localhost:8766/infill) for completion only; measured
+#   ZLG_URL_FAST             optional faster model (0.5B, http://localhost:31866/infill) for completion only; measured
 #                            ~2x faster but clearly less accurate, so it is off by default
 #   ZLG_AUTOSTART=0          do not start the container automatically (default: start it on the first request)
 #   ZLG_ENTER=0              do not touch Enter
 #   ZLG_KEY                  extra key sequence that triggers a suggestion, e.g. ZLG_KEY=$'\e[13;5u' (find yours: run `cat -v`, press the key)
 #   ZLG_STYLE_COMPLETE, ZLG_STYLE_COMMAND, ZLG_STYLE_ARROW, ZLG_STYLE_WARN   region_highlight styles
 #   ZLG_ARROW, ZLG_WARN_MARK   the glyphs shown before a generated command / on a destructive one
-: ${ZLG_PORT:=8765}
-: ${ZLG_PORT_FAST:=8766}
+: ${ZLG_PORT:=31865}
+: ${ZLG_PORT_FAST:=31866}
 : ${ZLG_URL:=http://localhost:$ZLG_PORT/infill}
 export ZLG_PORT ZLG_PORT_FAST
 : ${ZLG_N_PREDICT:=40}

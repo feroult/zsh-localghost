@@ -13,7 +13,7 @@ cat <<EOT | $ENGINE exec -i zlg-lab sh -c 'cat > /root/.zshrc'
 export LANG=C.UTF-8 TERM=xterm-256color
 source /root/.zsh-autosuggestions/zsh-autosuggestions.zsh
 export ZLG_AUTOSTART=0
-export ZLG_URL=${ZLG_URL:-http://host.containers.internal:8765/infill}
+export ZLG_URL=${ZLG_URL:-http://host.containers.internal:31865/infill}
 source /plugin/zsh-localghost.plugin.zsh
 PS1="%~ %# "
 cd ~
