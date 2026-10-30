@@ -1,0 +1,27 @@
+#!/bin/sh
+# zlg: manage the zsh-localghost inference container (podman or docker).
+#   zlg start | stop | status | logs | pull
+ENGINE="${ZLG_ENGINE:-$(command -v podman || command -v docker)}"
+IMAGE="${ZLG_IMAGE:-ghcr.io/feroult/zsh-localghost:latest}"   # published by .github/workflows/publish.yml
+NAME="${ZLG_CONTAINER:-zsh-localghost}"
+PORT="${ZLG_PORT:-8765}"; PORT_FAST="${ZLG_PORT_FAST:-8766}"
+BIND="${ZLG_BIND:-127.0.0.1}"
+VOLUME="${ZLG_VOLUME:-zsh-localghost-models}"
+PULL_ARGS="${ZLG_PULL_ARGS:-}"   # e.g. --tls-verify=false for a plain-HTTP registry (testing)
+[ -n "$ENGINE" ] || { echo "zlg: neither podman nor docker found" >&2; exit 1; }
+
+case "$1" in
+  start)
+    if "$ENGINE" container exists "$NAME" 2>/dev/null || "$ENGINE" inspect "$NAME" >/dev/null 2>&1; then
+      "$ENGINE" start "$NAME" >/dev/null && echo "zlg: started existing container $NAME"
+    else
+      "$ENGINE" run -d --name "$NAME" --restart unless-stopped \
+        -p "$BIND:$PORT:8080" -p "$BIND:$PORT_FAST:8081" \
+        -v "$VOLUME:/models" -e ZLG_THREADS="${ZLG_THREADS:-4}" $PULL_ARGS "$IMAGE" >/dev/null && echo "zlg: started $NAME from $IMAGE"
+    fi ;;
+  stop)   "$ENGINE" rm -f "$NAME" >/dev/null && echo "zlg: removed $NAME (models stay in volume $VOLUME)" ;;
+  status) for p in "$PORT" "$PORT_FAST"; do printf 'port %s: ' "$p"; curl -sf -m 2 "http://localhost:$p/health" || echo "down"; echo; done ;;
+  logs)   "$ENGINE" logs -f "$NAME" ;;
+  pull)   "$ENGINE" pull $PULL_ARGS "$IMAGE" ;;
+  *) echo "usage: zlg start|stop|status|logs|pull" >&2; exit 2 ;;
+esac
